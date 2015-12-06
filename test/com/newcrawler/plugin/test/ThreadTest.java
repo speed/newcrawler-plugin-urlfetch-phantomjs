@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.newcrawler.plugin.urlfetch.phantomjs.UrlFetchPluginService;
 import com.soso.plugin.UrlFetchPlugin;
+import com.soso.plugin.bo.UrlFetchPluginBo;
 
 public class ThreadTest {
 	
@@ -57,7 +58,9 @@ public class ThreadTest {
 		public void run() {
 			long time=System.currentTimeMillis();
 			String crawlUrl="http://www.newcrawler.com/header?ver="+num; 
-			Map<String, Object> map = urlFetchPluginService.execute(properties, headers, crawlUrl, method, cookie, userAgent, encoding);
+			
+			UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookie, userAgent, encoding);
+			Map<String, Object> map = urlFetchPluginService.execute(urlFetchPluginBo);
 			time=System.currentTimeMillis()-time;
 			System.out.println(num+":"+time);
 			System.out.println(map.get(UrlFetchPlugin.RETURN_DATA_KEY_CONTENT));
