@@ -58,6 +58,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		//properties.put(PROPERTIES_JS_FILTER_REGEXS, "http://static.360buyimg.com/*|$|http://item.jd.com/*");
 		
 		properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-2.0.0-windows\\bin\\phantomjs.exe");
+		properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-1.9.8-windows\\phantomjs.exe");
 		
 		Map<String, String> headers=new HashMap<String, String>(); 
 		String crawlUrl="http://item.jd.com/1510479.html"; 
@@ -261,7 +262,6 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				driver.manage().timeouts().setScriptTimeout(scriptTimeout, TimeUnit.MILLISECONDS);
 			}
 		}
-		
 		driver.executePhantomJS(""
 				+ "var page = this;"
 				+ "var urls = Array(); "
@@ -288,11 +288,11 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				+ "page.onLoadFinished = function(status) {"
 				+ "		page.urls=urls.join('|$|');"
 				+ "};"
-				
 				+ "return 'Done';"
 				);
-		
         driver.get(crawlUrl);
+        
+        Object outputEncoding=driver.executePhantomJS("return phantom.outputEncoding;");
         
         Object jsUrl=driver.executePhantomJS("var page = this; return page.urls;");
         String[] jsUrls = jsUrl.toString().split("\\Q|$|\\E");
@@ -311,15 +311,16 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			cookies.add(pluginCookie);
 		}
 		driver.manage().deleteAllCookies();
-		Map<String, Object> resHeaders=new HashMap<String, Object>();
 		
+		Map<String, Object> resHeaders=new HashMap<String, Object>();
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put(RETURN_DATA_KEY_CONTENT, driver.getPageSource());
 		map.put(RETURN_DATA_KEY_REALURL, driver.getCurrentUrl());
 		map.put(RETURN_DATA_KEY_INCLUDE_JS, jsList);
 		map.put(RETURN_DATA_KEY_COOKIES, cookies);
 		map.put(RETURN_DATA_KEY_HEADERS, resHeaders);
-		
+		map.put(RETURN_DATA_KEY_ENCODING, outputEncoding);
+		driver.executePhantomJS("var page = this; page.clearMemoryCache();");
 		return map;
 	}
 	
