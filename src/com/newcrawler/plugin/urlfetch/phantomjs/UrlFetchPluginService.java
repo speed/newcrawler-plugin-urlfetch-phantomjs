@@ -3,8 +3,8 @@ package com.newcrawler.plugin.urlfetch.phantomjs;
 import java.io.IOException;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +19,7 @@ import org.openqa.selenium.phantomjs.PhantomJSDriverService;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
 import com.soso.plugin.UrlFetchPlugin;
+import com.soso.plugin.bo.HttpCookieBo;
 import com.soso.plugin.bo.UrlFetchPluginBo;
 
 /**
@@ -63,10 +64,11 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		Map<String, String> headers=new HashMap<String, String>(); 
 		String crawlUrl="http://item.jd.com/1510479.html"; 
 		String method=null; 
-		String cookie=""; 
 		String userAgent="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7"; 
 		String encoding="GB2312";
-		UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookie, userAgent, encoding);
+		List<HttpCookieBo> cookieList=null;
+		
+		UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookieList, userAgent, encoding);
 		
 		UrlFetchPluginService urlFetchPluginService=new UrlFetchPluginService();
 		Map<String, Object> map1 = urlFetchPluginService.execute(urlFetchPluginBo);
@@ -74,7 +76,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		
 		long time=System.currentTimeMillis();
 		//crawlUrl="http://www.newcrawler.com/header"; 
-		urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookie, userAgent, encoding);
+		urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookieList, userAgent, encoding);
 		Map<String, Object> map = urlFetchPluginService.execute(urlFetchPluginBo);
 		time=System.currentTimeMillis()-time;
 		System.out.println("1:"+time);
@@ -94,7 +96,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		Map<String, String> headers=urlFetchPluginBo.getHeaders();
 		String crawlUrl=urlFetchPluginBo.getCrawlUrl();
 		String method=urlFetchPluginBo.getMethod();
-		String cookie=urlFetchPluginBo.getCookie();
+		List<HttpCookieBo> cookieList=urlFetchPluginBo.getCookieList();
 		String userAgent=urlFetchPluginBo.getUserAgent();
 		String encoding=urlFetchPluginBo.getEncoding();
 		
@@ -203,8 +205,11 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		if(headers==null){
 			headers = new HashMap<String, String>();
 		}
-		if(StringUtils.isNoneBlank(cookie)){
-			headers.put("Cookie", cookie);
+		if(cookieList!=null && !cookieList.isEmpty()){
+			String cookie=getCookies(cookieList);
+			if(StringUtils.isNoneBlank(cookie)){
+				headers.put("Cookie", cookie);
+			}
 		}
 		if(StringUtils.isNoneBlank(userAgent)){
 			headers.put("User-Agent", userAgent);
@@ -221,7 +226,14 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		}
 		return map;
 	}
-	
+
+	private final String getCookies(List<HttpCookieBo> cookieList){
+		String cookie="";
+		for(HttpCookieBo httpCookie:cookieList){
+			cookie+=httpCookie.getName()+"="+httpCookie.getValue()+";";
+		}
+		return cookie;
+	}
 	/**
 	 * http://phantomjs.org/api/webpage/property/custom-headers.html
 	 * @return
@@ -300,25 +312,34 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
         	jsList.add(js);
         }
         
-        Set<com.soso.plugin.core.Cookie> cookies=new HashSet<com.soso.plugin.core.Cookie>();
+        Date nowDate=new Date();
+		long nowTime=nowDate.getTime();
+        List<HttpCookieBo> cookieList=new ArrayList<HttpCookieBo>();
         Set<Cookie> cookieSet = driver.manage().getCookies();
 		for (Cookie cookieObj : cookieSet) {
-			com.soso.plugin.core.Cookie pluginCookie=new com.soso.plugin.core.Cookie(cookieObj.getName(), cookieObj.getValue());
+			HttpCookieBo pluginCookie=new HttpCookieBo(cookieObj.getName(), cookieObj.getValue());
 			pluginCookie.setDomain(cookieObj.getDomain());
 			pluginCookie.setPath(cookieObj.getPath());
-			pluginCookie.setExpiryDate(cookieObj.getExpiry());
 			pluginCookie.setSecure(cookieObj.isSecure());
-			cookies.add(pluginCookie);
+			
+			long expiry=-1;
+			Date expiryDate=cookieObj.getExpiry();
+			if(expiryDate!=null){
+				expiry=cookieObj.getExpiry().getTime()-nowTime;
+				expiry=expiry/1000;
+			}
+			
+			pluginCookie.setMaxAge(expiry);//
+			pluginCookie.setHttpOnly(cookieObj.isHttpOnly());
+			cookieList.add(pluginCookie);
 		}
 		driver.manage().deleteAllCookies();
 		
-		Map<String, Object> resHeaders=new HashMap<String, Object>();
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put(RETURN_DATA_KEY_CONTENT, driver.getPageSource());
 		map.put(RETURN_DATA_KEY_REALURL, driver.getCurrentUrl());
 		map.put(RETURN_DATA_KEY_INCLUDE_JS, jsList);
-		map.put(RETURN_DATA_KEY_COOKIES, cookies);
-		map.put(RETURN_DATA_KEY_HEADERS, resHeaders);
+		map.put(RETURN_DATA_KEY_COOKIES, cookieList);
 		map.put(RETURN_DATA_KEY_ENCODING, outputEncoding);
 		driver.executePhantomJS("var page = this; page.clearMemoryCache();");
 		return map;

@@ -1,10 +1,12 @@
 package com.newcrawler.plugin.test;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.newcrawler.plugin.urlfetch.phantomjs.UrlFetchPluginService;
 import com.soso.plugin.UrlFetchPlugin;
+import com.soso.plugin.bo.HttpCookieBo;
 import com.soso.plugin.bo.UrlFetchPluginBo;
 
 public class ThreadTest {
@@ -43,7 +45,7 @@ public class ThreadTest {
 		private Map<String, String> properties;
 		private Map<String, String> headers;
 		private String method=null; 
-		private String cookie=null; 
+		private List<HttpCookieBo> cookieList=null; 
 		private String userAgent="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7"; 
 		private String encoding="GB2312";
 		private int num;
@@ -59,7 +61,7 @@ public class ThreadTest {
 			long time=System.currentTimeMillis();
 			String crawlUrl="http://www.newcrawler.com/header?ver="+num; 
 			
-			UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookie, userAgent, encoding);
+			UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookieList, userAgent, encoding);
 			Map<String, Object> map = urlFetchPluginService.execute(urlFetchPluginBo);
 			time=System.currentTimeMillis()-time;
 			System.out.println(num+":"+time);
