@@ -1,7 +1,10 @@
 package com.newcrawler.plugin.urlfetch.phantomjs;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.SocketException;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -82,9 +85,6 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		System.out.println("1:"+time);
 		urlFetchPluginService.destory();
 	}
-	public UrlFetchPluginService(){
-		
-	}
 	
 	public void destory(){
 		driver.quit();
@@ -163,7 +163,17 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				phantomjsPath = properties.get(PHANTOMJS_PATH).trim();
 			}
 		}
-		
+		if(phantomjsPath==null){
+			String defaultPath=null;
+			defaultPath=this.getClass().getResource("/").getPath();
+			try {
+				defaultPath = URLDecoder.decode(defaultPath, "UTF-8");
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+			}
+			phantomjsPath=new File(defaultPath).getParentFile().getParentFile().getParent()+File.separator+"phantomjs"+File.separator+"bin"+File.separator+"phantomjs";
+			logger.info("Phantomjs default path:"+phantomjsPath);
+		}
 
 		String filterRegexs = "";
 		if (jsFilterRegexs != null && !"".equals(jsFilterRegexs.trim())) {
@@ -264,18 +274,27 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		        	capabilities.setCapability(PhantomJSDriverService.PHANTOMJS_CLI_ARGS, cliArgsCap);
 			        
 		        	capabilities.setCapability("phantomjs.page.settings.loadImages", false);
-		        	
-		        	for(String key:headers.keySet()){
-		        		capabilities.setCapability("phantomjs.page.customHeaders."+key, headers.get(key));
-		        	}
 			        driver = new PhantomJSDriver(capabilities);
 				}
 				driver.manage().timeouts().pageLoadTimeout(pageLoadTimeout, TimeUnit.MILLISECONDS);
 				driver.manage().timeouts().setScriptTimeout(scriptTimeout, TimeUnit.MILLISECONDS);
 			}
 		}
+		String customHeaders="";
+		for(String key:headers.keySet()){
+			if("Accept-Encoding".equals(key)){
+    			continue;
+    		}
+			
+			if("".equals(customHeaders)){
+				customHeaders="'"+key+"':'"+headers.get(key)+"'";
+			}else{
+				customHeaders=customHeaders+", '"+key+"':'"+headers.get(key)+"'";
+			}
+    	}
 		driver.executePhantomJS(""
 				+ "var page = this;"
+				+ "page.customHeaders  = {"+customHeaders+"};"
 				+ "var urls = Array(); "
 				+ "page.onResourceRequested = function(requestData, networkRequest) {"
 				+ "		if ('"+jsFilterRegexs+"' != '') {"
@@ -302,6 +321,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				+ "};"
 				+ "return 'Done';"
 				);
+		
         driver.get(crawlUrl);
         
         Object outputEncoding=driver.executePhantomJS("return phantom.outputEncoding;");
