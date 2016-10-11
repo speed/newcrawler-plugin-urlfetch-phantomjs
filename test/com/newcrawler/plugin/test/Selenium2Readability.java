@@ -8,6 +8,8 @@ import org.openqa.selenium.Capabilities;
 import org.openqa.selenium.phantomjs.PhantomJSDriver;
 import org.openqa.selenium.phantomjs.PhantomJSDriverService;
 import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
 /**
  * https://github.com/speed/readability
@@ -33,20 +35,26 @@ public class Selenium2Readability  {
         
         ((DesiredCapabilities) caps).setCapability(PhantomJSDriverService.PHANTOMJS_CLI_ARGS, arg);
         ((DesiredCapabilities) caps).setCapability("phantomjs.page.customHeaders.User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36");
-        ((DesiredCapabilities) caps).setCapability("phantomjs.page.customHeaders.Accept-Encoding", "gzip, deflate, sdch");
-        ((DesiredCapabilities) caps).setCapability("phantomjs.page.customHeaders.Accept-Language", "zh-CN,zh;q=0.8,en;q=0.6");
-        ((DesiredCapabilities) caps).setCapability("phantomjs.page.customHeaders.Test", "no-cache");
         
         PhantomJSDriver   driver = new  PhantomJSDriver(caps);
-        String url="http://www.bokon.net/novel-9/1229301/17739071.html";
+        String url="http://www.xiamp4.com/Html/GP24002.html";
         String runReadability="C:/Users/wisers/git/newcrawler-plugin-urlfetch-phantomjs/readability/Readability.js";
         String run="C:/Users/wisers/git/newcrawler-plugin-urlfetch-phantomjs/readability/run.js";
         
         run= FileUtils.readFileToString(new File(run));
         
+        driver.executePhantomJS("var page = this;"
+        		+ "page.onResourceRequested = function(requestData, networkRequest) {"
+        		+ "		console.log('url: ' + requestData['url']); "
+        		+ "};"
+        		);
+        
         driver.get(url);
-        driver.navigate().to(url);
-
+        
+        //Thread.sleep(5000);  Or
+        WebDriverWait wait_for_Data = new WebDriverWait(driver, 10);
+        //wait_for_Data.until(ExpectedConditions.titleContains("²©¿´Ð¡ËµÍø"));
+        
         driver.executePhantomJS(""
 				+ "var page = this;"
 				+ run
