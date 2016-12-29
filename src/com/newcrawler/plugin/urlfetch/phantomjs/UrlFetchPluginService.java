@@ -52,30 +52,6 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 	private PhantomJSDriver driver=null;
 	private DesiredCapabilities capabilities;
 	
-	public static void main(String[] args){
-		Map<String, String> properties=new HashMap<String, String>(); 
-		
-		properties.put(PROPERTIES_JS_FILTER_TYPE, "include");
-		//properties.put(PROPERTIES_JS_FILTER_REGEXS, "http://static.360buyimg.com/*|$|http://item.jd.com/*");
-		
-		properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-2.0.0-windows\\bin\\phantomjs.exe");
-		properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-2.1.1-windows\\bin\\phantomjs.exe");
-		
-		Map<String, String> headers=new HashMap<String, String>(); 
-		String crawlUrl="http://www.lagou.com/jobs/list_%E7%88%AC%E8%99%AB?px=default&city=%E6%B7%B1%E5%9C%B3#filterBox"; 
-		String method=null; 
-		String userAgent="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7"; 
-		String encoding=null;
-		List<HttpCookieBo> cookieList=null;
-		
-		UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookieList, userAgent, encoding);
-		
-		UrlFetchPluginService urlFetchPluginService=new UrlFetchPluginService();
-		Map<String, Object> map1 = urlFetchPluginService.execute(urlFetchPluginBo);
-		System.out.println(map1.get(RETURN_DATA_KEY_CONTENT));
-		
-		urlFetchPluginService.destory();
-	}
 	
 	public void destory(){
 		if(driver!=null){
@@ -286,12 +262,15 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				customHeaders=customHeaders+", '"+key+"':'"+headers.get(key)+"'";
 			}
     	}
-		driver.executePhantomJS(""
-				+ "var page = this;"
-				+ "page.customHeaders  = {"+customHeaders+"};"
-				+ "var urls = Array(); "
-				+ "page.onResourceRequested = function(requestData, networkRequest) {"
-				+ "		if ('"+jsFilterRegexs+"' != '') {"
+		
+		String script=""
+			+ "var page = this;"
+			+ "page.customHeaders  = {"+customHeaders+"};"
+			+ "var urls = Array(); ";
+
+		String filter="";
+		if(jsFilterRegexs!=null && !"".equals(jsFilterRegexs.trim())){
+			filter+=""
 				+ "			var match = requestData.url.match(/"+jsFilterRegexs+"/gi); "
 				+ "			if ('"+jsFilterType+"' == 'include') {"
 				+ "				if (match == null) {"
@@ -305,16 +284,21 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				+ "					networkRequest.abort(); "
 				+ "					return; "
 				+ "				};"
-				+ "			};"
-				+ "		};"
+				+ "			};";
+		}
+		
+		script+=""
+				+ "page.onResourceRequested = function(requestData, networkRequest) {"
+				+ filter
 				+ "		urls.push(requestData.url);"
 				+ "};"
 				
 				+ "page.onLoadFinished = function(status) {"
 				+ "		page.urls=urls.join('|$|');"
 				+ "};"
-				+ "return 'Done';"
-				);
+				+ "return 'Done';";
+		
+		driver.executePhantomJS(script);
 		
         driver.get(crawlUrl);
         
