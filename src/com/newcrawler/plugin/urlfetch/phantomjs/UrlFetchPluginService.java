@@ -13,11 +13,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openqa.selenium.Cookie;
-import org.openqa.selenium.phantomjs.PhantomJSDriver;
 import org.openqa.selenium.phantomjs.PhantomJSDriverService;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
@@ -49,15 +47,53 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 	public static final String PROPERTIES_JS_CACHE_REGEXS = "js.cache.regexs";
 	private static final String DEFAULT_JS_FILTER_TYPE = "include";
 	
-	private PhantomJSDriver driver=null;
+	private CustomPhantomJSDriver driver=null;
 	private DesiredCapabilities capabilities;
 	
+	public static void main(String[] args){
+		Map<String, String> properties=new HashMap<String, String>(); 
+		properties.put(PROXY_IP, "127.0.0.1");
+		properties.put(PROXY_PORT, String.valueOf(8888));
+		properties.put(PROXY_TYPE, "http");
+		
+		properties.put(PROPERTIES_JS_FILTER_TYPE, "include");
+		//properties.put(PROPERTIES_JS_FILTER_REGEXS, "http://www.lagou.com/*|$|http://item.jd.com/*");
+		
+		properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-2.1.1-windows\\bin\\phantomjs.exe");
+		//properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-1.9.8-windows\\phantomjs.exe");
+		
+		Map<String, String> headers=new HashMap<String, String>(); 
+		String crawlUrl="http://www.lagou.com/jobs/list_%E7%88%AC%E8%99%AB?px=default&city=%E6%B7%B1%E5%9C%B3#filterBox"; 
+		String method=null; 
+		String userAgent="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7"; 
+		String encoding="utf-8";
+		List<HttpCookieBo> cookieList=null;
+		
+		UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookieList, userAgent, encoding);
+		
+		UrlFetchPluginService urlFetchPluginService=new UrlFetchPluginService();
+		for(int i=0; i<1000;i++){
+			
+			urlFetchPluginService.test(urlFetchPluginBo);
+			
+			System.out.println("times:"+i);
+		}
+	}
+	
+	public void test(UrlFetchPluginBo urlFetchPluginBo){
+		Map<String, Object> map1 = execute(urlFetchPluginBo);
+		//System.out.println(map1.get(RETURN_DATA_KEY_CONTENT));
+	}
 	
 	public void destory(){
 		if(driver!=null){
-			driver.quit();
+			try{
+				driver.quit();
+			}catch(Exception e){
+				logger.error(e.getMessage());
+			}
+			driver=null;
 		}
-		
 	}
 	
 	@Override
@@ -73,8 +109,8 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		String jsFilterRegexs = null;
 		String jsFilterType = DEFAULT_JS_FILTER_TYPE;
 		String jsCacheRegexs = null;
-		int timeoutConnection=60000;
-		int timeoutJavascript=5000;
+		int timeoutConnection=16000;
+		int timeoutJavascript=8000;
 		
 		String proxyIP=null;
 		int proxyPort=-1;
@@ -144,7 +180,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			phantomjsPath=new File(defaultPath).getParentFile().getParentFile().getParent()+File.separator+"phantomjs"+File.separator+"bin"+File.separator+"phantomjs";
 			logger.info("Phantomjs default path:"+phantomjsPath);
 		}
-
+		
 		String filterRegexs = "";
 		if (jsFilterRegexs != null && !"".equals(jsFilterRegexs.trim())) {
 			String[] regexs = jsFilterRegexs.split("\\Q|$|\\E");
@@ -187,11 +223,11 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		}
 		if(cookieList!=null && !cookieList.isEmpty()){
 			String cookie=getCookies(cookieList);
-			if(StringUtils.isNoneBlank(cookie)){
+			if(cookie!=null && !"".equals(cookie)){
 				headers.put("Cookie", cookie);
 			}
 		}
-		if(StringUtils.isNoneBlank(userAgent)){
+		if(userAgent!=null && !"".equals(userAgent)){
 			headers.put("User-Agent", userAgent);
 		}
 		List<String> jsList = new ArrayList<String>();
@@ -203,6 +239,8 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			logger.error(e);
 		} catch (IOException e) {
 			logger.error(e);
+		} catch(org.openqa.selenium.remote.UnreachableBrowserException e){
+			destory();
 		}
 		return map;
 	}
@@ -214,19 +252,13 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		}
 		return cookie;
 	}
-	/**
-	 * http://phantomjs.org/api/webpage/property/custom-headers.html
-	 * @return
-	 * @throws IOException
-	 */
-	private Map<String, Object> read(String proxyIP, int proxyPort, final String proxyUsername, final String proxyPassword, final String proxyType, String phantomjsPath, Map<String, String> headers, String crawlUrl, String method, String encoding,
-			String jsFilterType, String jsFilterRegexs, List<String> jsList, String jsCacheRegexs, final long pageLoadTimeout, final long scriptTimeout) throws IOException{
+	private void initDriver(String proxyIP, int proxyPort, final String proxyUsername, final String proxyPassword, final String proxyType, String phantomjsPath, 
+			final long pageLoadTimeout, final long scriptTimeout){
 		if(driver==null){
 			synchronized (this) {
 				if(driver==null){
 					capabilities = DesiredCapabilities.phantomjs();
 			        capabilities.setCapability(PhantomJSDriverService.PHANTOMJS_EXECUTABLE_PATH_PROPERTY, phantomjsPath);
-			        
 			        List<String> cliArgsCap = new ArrayList<String>();
 			        if(proxyIP!=null){
 			        	cliArgsCap.add("--proxy="+proxyIP+":"+proxyPort);
@@ -242,14 +274,37 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			        cliArgsCap.add("--ignore-ssl-errors=yes");
 			        
 		        	capabilities.setCapability(PhantomJSDriverService.PHANTOMJS_CLI_ARGS, cliArgsCap);
-			        
-		        	capabilities.setCapability("phantomjs.page.settings.loadImages", false);
-			        driver = new PhantomJSDriver(capabilities);
+		        	
+		        	//capabilities.setCapability("takesScreenshot", false);
+		        	//capabilities.setCapability("phantomjs.page.settings.resourceTimeout", 5000);
+		        	capabilities.setCapability("phantomjs.page.settings.javascriptCanCloseWindows", false);
+		        	capabilities.setCapability("phantomjs.page.settings.javascriptCanOpenWindows", false);
+		        	/**
+		        	 * QtWebKit memory leak
+		        	 * https://github.com/ariya/phantomjs/issues/12903
+		        	 * https://bugreports.qt.io/browse/QTBUG-38857
+		        	 */
+		        	capabilities.setCapability("phantomjs.page.settings.loadImages", true);
+			        driver = new CustomPhantomJSDriver(capabilities);
 				}
+				
 				driver.manage().timeouts().pageLoadTimeout(pageLoadTimeout, TimeUnit.MILLISECONDS);
-				driver.manage().timeouts().setScriptTimeout(scriptTimeout, TimeUnit.MILLISECONDS);
 			}
 		}
+	}
+	private void startSession(final long pageLoadTimeout){
+		driver.startSession(capabilities);
+		driver.manage().timeouts().pageLoadTimeout(pageLoadTimeout, TimeUnit.MILLISECONDS);
+	}
+	/**
+	 * http://phantomjs.org/api/webpage/property/custom-headers.html
+	 * @return
+	 * @throws IOException
+	 */
+	private Map<String, Object> read(String proxyIP, int proxyPort, final String proxyUsername, final String proxyPassword, final String proxyType, String phantomjsPath, Map<String, String> headers, String crawlUrl, String method, String encoding,
+			String jsFilterType, String jsFilterRegexs, List<String> jsList, String jsCacheRegexs, final long pageLoadTimeout, final long scriptTimeout) throws IOException{
+		initDriver(proxyIP, proxyPort, proxyUsername, proxyPassword, proxyType, phantomjsPath, pageLoadTimeout, scriptTimeout);
+		
 		String customHeaders="";
 		for(String key:headers.keySet()){
 			if("Accept-Encoding".equals(key)){
@@ -262,46 +317,67 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				customHeaders=customHeaders+", '"+key+"':'"+headers.get(key)+"'";
 			}
     	}
-		
 		String script=""
-			+ "var page = this;"
-			+ "page.customHeaders  = {"+customHeaders+"};"
-			+ "var urls = Array(); ";
-
-		String filter="";
-		if(jsFilterRegexs!=null && !"".equals(jsFilterRegexs.trim())){
-			filter+=""
-				+ "			var match = requestData.url.match(/"+jsFilterRegexs+"/gi); "
-				+ "			if ('"+jsFilterType+"' == 'include') {"
-				+ "				if (match == null) {"
-				+ "					console.log('abort url: ' + requestData['url']); "
-				+ "					networkRequest.abort(); "
-				+ "					return; "
-				+ "				};"
-				+ "			}else{"
-				+ "				if (match != null) {"
-				+ "					console.log('abort url: ' + requestData['url']); "
-				+ "					networkRequest.abort(); "
-				+ "					return; "
-				+ "				};"
-				+ "			};";
-		}
-		
-		script+=""
-				+ "page.onResourceRequested = function(requestData, networkRequest) {"
-				+ filter
-				+ "		urls.push(requestData.url);"
-				+ "};"
+				+ "var page = this;"
+				+ "page.settings.resourceTimeout = "+scriptTimeout+";"
+				+ "page.customHeaders  = {"+customHeaders+"};"
+				+ "var urls = Array(); "
 				
 				+ "page.onLoadFinished = function(status) {"
 				+ "		page.urls=urls.join('|$|');"
 				+ "};"
+				
+				+ "page.onResourceTimeout = function(e) {"
+				+ "		console.log('Response (#' + request.id + '): ' + JSON.stringify(request));"
+				+ "};";
+				
+				
+		if(jsFilterRegexs!=null && !"".equals(jsFilterRegexs)){
+			script+=""
+					+ "page.onResourceRequested = function(requestData, networkRequest) {"
+					+ "			if (requestData.url.match(/\\.jpg.*?/gi) || requestData.url.match(/\\.jpeg.*?/gi) || requestData.url.match(/\\.gif.*?/gi) || requestData.url.match(/\\.png.*?/gi) ) {"
+					+ "					networkRequest.abort(); "
+					+ "					return; "
+					+ "			}"
+					//+ "			console.log('url: ' + requestData['url']+', Content-Type: ' + JSON.stringify(requestData.headers)); "
+					+ "			var match = requestData.url.match(/"+jsFilterRegexs+"/gi); "
+					+ "			if ('"+jsFilterType+"' == 'include') {"
+					+ "				if (match == null) {"
+					+ "					console.log('abort url: ' + requestData['url']); "
+					+ "					networkRequest.abort(); "
+					+ "					return; "
+					+ "				};"
+					+ "			}else{"
+					+ "				if (match != null) {"
+					+ "					console.log('abort url: ' + requestData['url']); "
+					+ "					networkRequest.abort(); "
+					+ "					return; "
+					+ "				};"
+					+ "			};"
+					+ "			urls.push(requestData.url);"
+					+ "};";
+		}else{
+			script+=""
+					+ "page.onResourceRequested = function(requestData, networkRequest) {"
+					+ "			if (requestData.url.match(/\\.jpg.*?/gi) || requestData.url.match(/\\.jpeg.*?/gi) || requestData.url.match(/\\.gif.*?/gi) || requestData.url.match(/\\.png.*?/gi) ) {"
+					+ "					networkRequest.abort(); "
+					+ "					return; "
+					+ "			}"
+					+ "			urls.push(requestData.url);"
+					+ "};";
+		}
+		script+=""
+				+ "console.log('page.settings.resourceTimeout = '+page.settings.resourceTimeout);"
 				+ "return 'Done';";
 		
 		driver.executePhantomJS(script);
 		
-        driver.get(crawlUrl);
-        
+		try{
+			driver.get(crawlUrl);
+		}catch(org.openqa.selenium.TimeoutException e){
+			logger.error(e.getMessage());
+		}
+		//
         Object outputEncoding=driver.executePhantomJS("return phantom.outputEncoding;");
         
         Object jsUrl=driver.executePhantomJS("var page = this; return page.urls;");
@@ -339,7 +415,9 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		map.put(RETURN_DATA_KEY_INCLUDE_JS, jsList);
 		map.put(RETURN_DATA_KEY_COOKIES, cookieList);
 		map.put(RETURN_DATA_KEY_ENCODING, outputEncoding);
-		driver.executePhantomJS("var page = this; page.clearMemoryCache();");
+		
+		//driver.executePhantomJS("var page = this; page.urls=null; page.clearMemoryCache(); page.close();console.log('page.close();'); ");
+		//this.startSession(pageLoadTimeout);
 		return map;
 	}
 	
