@@ -50,36 +50,6 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 	private CustomPhantomJSDriver driver=null;
 	private DesiredCapabilities capabilities;
 	
-	public static void main(String[] args){
-		Map<String, String> properties=new HashMap<String, String>(); 
-		properties.put(PROXY_IP, "127.0.0.1");
-		properties.put(PROXY_PORT, String.valueOf(8888));
-		properties.put(PROXY_TYPE, "http");
-		
-		properties.put(PROPERTIES_JS_FILTER_TYPE, "include");
-		//properties.put(PROPERTIES_JS_FILTER_REGEXS, "http://www.lagou.com/*|$|http://item.jd.com/*");
-		
-		properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-2.1.1-windows\\bin\\phantomjs.exe");
-		//properties.put(PHANTOMJS_PATH, "D:\\js\\phantomjs-1.9.8-windows\\phantomjs.exe");
-		
-		Map<String, String> headers=new HashMap<String, String>(); 
-		String crawlUrl="http://www.lagou.com/jobs/list_%E7%88%AC%E8%99%AB?px=default&city=%E6%B7%B1%E5%9C%B3#filterBox"; 
-		String method=null; 
-		String userAgent="Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7"; 
-		String encoding="utf-8";
-		List<HttpCookieBo> cookieList=null;
-		
-		UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookieList, userAgent, encoding);
-		
-		UrlFetchPluginService urlFetchPluginService=new UrlFetchPluginService();
-		for(int i=0; i<1000;i++){
-			
-			urlFetchPluginService.test(urlFetchPluginBo);
-			
-			System.out.println("times:"+i);
-		}
-	}
-	
 	public void test(UrlFetchPluginBo urlFetchPluginBo){
 		Map<String, Object> map1 = execute(urlFetchPluginBo);
 		//System.out.println(map1.get(RETURN_DATA_KEY_CONTENT));
@@ -109,8 +79,8 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		String jsFilterRegexs = null;
 		String jsFilterType = DEFAULT_JS_FILTER_TYPE;
 		String jsCacheRegexs = null;
-		int timeoutConnection=16000;
-		int timeoutJavascript=8000;
+		int timeoutConnection=60000;
+		int timeoutJavascript=25000;
 		
 		String proxyIP=null;
 		int proxyPort=-1;
@@ -273,6 +243,10 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			        }
 			        cliArgsCap.add("--ignore-ssl-errors=yes");
 			        
+			        //cliArgsCap.add("--debug=true");
+			        //cliArgsCap.add("--disk-cache=yes");
+			        //cliArgsCap.add("--disk-cache-path=/Users/liaolianwu/phantomjscache");
+			        
 		        	capabilities.setCapability(PhantomJSDriverService.PHANTOMJS_CLI_ARGS, cliArgsCap);
 		        	
 		        	//capabilities.setCapability("takesScreenshot", false);
@@ -289,6 +263,8 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 				}
 				
 				driver.manage().timeouts().pageLoadTimeout(pageLoadTimeout, TimeUnit.MILLISECONDS);
+				driver.manage().timeouts().implicitlyWait(2000, TimeUnit.MILLISECONDS);
+				driver.manage().timeouts().setScriptTimeout(scriptTimeout, TimeUnit.MILLISECONDS);
 			}
 		}
 	}
@@ -416,7 +392,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		map.put(RETURN_DATA_KEY_COOKIES, cookieList);
 		map.put(RETURN_DATA_KEY_ENCODING, outputEncoding);
 		
-		//driver.executePhantomJS("var page = this; page.urls=null; page.clearMemoryCache(); page.close();console.log('page.close();'); ");
+		driver.executePhantomJS("var page = this; page.urls=null; page.clearMemoryCache(); console.log('clearMemoryCache'); ");
 		//this.startSession(pageLoadTimeout);
 		return map;
 	}
