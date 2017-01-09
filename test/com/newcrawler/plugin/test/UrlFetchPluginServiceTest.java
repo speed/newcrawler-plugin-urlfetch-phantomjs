@@ -1,5 +1,6 @@
 package com.newcrawler.plugin.test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,7 +38,7 @@ public class UrlFetchPluginServiceTest{
 	public static final String PROPERTIES_JS_CACHE_REGEXS = "js.cache.regexs";
 
 	
-	public static void main(String[] args){
+	public static void main(String[] args) throws IOException{
 		//Fiddler Proxy
 		Map<String, String> properties=new HashMap<String, String>(); 
 		properties.put(PROXY_IP, "192.168.44.244");

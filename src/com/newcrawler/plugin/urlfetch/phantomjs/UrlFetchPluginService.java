@@ -16,9 +16,14 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openqa.selenium.Cookie;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebDriverException;
 import org.openqa.selenium.phantomjs.PhantomJSDriverService;
 import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
+import com.google.common.base.Predicate;
 import com.soso.plugin.UrlFetchPlugin;
 import com.soso.plugin.bo.HttpCookieBo;
 import com.soso.plugin.bo.UrlFetchPluginBo;
@@ -50,11 +55,6 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 	private CustomPhantomJSDriver driver=null;
 	private DesiredCapabilities capabilities;
 	
-	public void test(UrlFetchPluginBo urlFetchPluginBo){
-		Map<String, Object> map1 = execute(urlFetchPluginBo);
-		//System.out.println(map1.get(RETURN_DATA_KEY_CONTENT));
-	}
-	
 	public void destory(){
 		if(driver!=null){
 			try{
@@ -67,7 +67,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 	}
 	
 	@Override
-	public Map<String, Object> execute(UrlFetchPluginBo urlFetchPluginBo) {
+	public Map<String, Object> execute(UrlFetchPluginBo urlFetchPluginBo)  throws IOException{
 		Map<String, String> properties=urlFetchPluginBo.getProperties();
 		Map<String, String> headers=urlFetchPluginBo.getHeaders();
 		String crawlUrl=urlFetchPluginBo.getCrawlUrl();
@@ -79,8 +79,8 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		String jsFilterRegexs = null;
 		String jsFilterType = DEFAULT_JS_FILTER_TYPE;
 		String jsCacheRegexs = null;
-		int timeoutConnection=60000;
-		int timeoutJavascript=25000;
+		int timeoutConnection=45000;
+		int timeoutJavascript=20000;
 		
 		String proxyIP=null;
 		int proxyPort=-1;
@@ -209,8 +209,14 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			logger.error(e);
 		} catch (IOException e) {
 			logger.error(e);
-		} catch(org.openqa.selenium.remote.UnreachableBrowserException e){
-			destory();
+		} catch (WebDriverException e){
+			String msg=e.getMessage();
+			logger.error(msg);
+			if(msg.indexOf("not reachable")!=-1){
+				destory();
+				map=read(proxyIP, proxyPort, proxyUsername, proxyPassword, proxyType, phantomjsPath, headers, crawlUrl, method, encoding, 
+						jsFilterType, filterRegexs, jsList, cacheRegexs, timeoutConnection, timeoutJavascript);
+			}
 		}
 		return map;
 	}
@@ -243,10 +249,6 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			        }
 			        cliArgsCap.add("--ignore-ssl-errors=yes");
 			        
-			        //cliArgsCap.add("--debug=true");
-			        //cliArgsCap.add("--disk-cache=yes");
-			        //cliArgsCap.add("--disk-cache-path=/Users/liaolianwu/phantomjscache");
-			        
 		        	capabilities.setCapability(PhantomJSDriverService.PHANTOMJS_CLI_ARGS, cliArgsCap);
 		        	
 		        	//capabilities.setCapability("takesScreenshot", false);
@@ -262,8 +264,8 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			        driver = new CustomPhantomJSDriver(capabilities);
 				}
 				
-				driver.manage().timeouts().pageLoadTimeout(pageLoadTimeout, TimeUnit.MILLISECONDS);
 				driver.manage().timeouts().implicitlyWait(2000, TimeUnit.MILLISECONDS);
+				driver.manage().timeouts().pageLoadTimeout(pageLoadTimeout, TimeUnit.MILLISECONDS);
 				driver.manage().timeouts().setScriptTimeout(scriptTimeout, TimeUnit.MILLISECONDS);
 			}
 		}
@@ -353,6 +355,41 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		}catch(org.openqa.selenium.TimeoutException e){
 			logger.error(e.getMessage());
 		}
+		
+		final String completeScript=""
+    			+ "var i, frames, result='complete';"
+/*    			+ "frames = document.getElementsByTagName('iframe');"
+    			+ "for (i = 0; i < frames.length; ++i){"
+    			+ "	var iframeDoc = frames[i].contentDocument || frames[i].contentWindow.document;"
+    			+ "	console.log(frames[i]);"
+    			+ "	if (  iframeDoc.readyState  != 'complete' ) {"
+    			+ "		result='loading';"
+    			+ "		break;"
+    			+ "	}"
+    			+ "}"*/
+    			+ "if (  document.readyState  != 'complete' ) {"
+    			+ "		result='loading';"
+    			+ "}"
+    			+ "return result;";
+    			
+    	
+        Predicate<WebDriver> pageLoaded = new Predicate<WebDriver>() {
+            public boolean apply(WebDriver input) {
+            	boolean result=((JavascriptExecutor) input).executeScript(completeScript).equals("complete");
+            	//System.out.println(result);
+                return result;
+            }
+        };
+        try{
+        	new WebDriverWait(driver, 6, 500).until(pageLoaded);
+        }catch(RuntimeException e){
+        	logger.warn(e.getMessage());
+        }
+        try {
+			Thread.sleep(100);
+		} catch (InterruptedException e) {
+		}
+        
 		//
         Object outputEncoding=driver.executePhantomJS("return phantom.outputEncoding;");
         
@@ -392,7 +429,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		map.put(RETURN_DATA_KEY_COOKIES, cookieList);
 		map.put(RETURN_DATA_KEY_ENCODING, outputEncoding);
 		
-		driver.executePhantomJS("var page = this; page.urls=null; page.clearMemoryCache(); console.log('clearMemoryCache'); ");
+		//driver.executePhantomJS("var page = this; page.urls=null; page.clearMemoryCache(); page.close();console.log('page.close();'); ");
 		//this.startSession(pageLoadTimeout);
 		return map;
 	}

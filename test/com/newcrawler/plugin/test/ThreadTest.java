@@ -1,5 +1,6 @@
 package com.newcrawler.plugin.test;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +63,13 @@ public class ThreadTest {
 			String crawlUrl="http://www.newcrawler.com/header?ver="+num; 
 			
 			UrlFetchPluginBo urlFetchPluginBo=new UrlFetchPluginBo(properties, headers, crawlUrl, method, cookieList, userAgent, encoding);
-			Map<String, Object> map = urlFetchPluginService.execute(urlFetchPluginBo);
+			Map<String, Object> map=null;
+			try {
+				map = urlFetchPluginService.execute(urlFetchPluginBo);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			time=System.currentTimeMillis()-time;
 			System.out.println(num+":"+time);
 			System.out.println(map.get(UrlFetchPlugin.RETURN_DATA_KEY_CONTENT));
