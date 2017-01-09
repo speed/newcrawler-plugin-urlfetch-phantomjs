@@ -209,14 +209,12 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			logger.error(e);
 		} catch (IOException e) {
 			logger.error(e);
-		} catch (WebDriverException e){
+		} catch (org.openqa.selenium.remote.UnreachableBrowserException e){
 			String msg=e.getMessage();
 			logger.error(msg);
-			if(msg.indexOf("not reachable")!=-1){
-				destory();
-				map=read(proxyIP, proxyPort, proxyUsername, proxyPassword, proxyType, phantomjsPath, headers, crawlUrl, method, encoding, 
-						jsFilterType, filterRegexs, jsList, cacheRegexs, timeoutConnection, timeoutJavascript);
-			}
+			destory();
+			map=read(proxyIP, proxyPort, proxyUsername, proxyPassword, proxyType, phantomjsPath, headers, crawlUrl, method, encoding, 
+					jsFilterType, filterRegexs, jsList, cacheRegexs, timeoutConnection, timeoutJavascript);
 		}
 		return map;
 	}
