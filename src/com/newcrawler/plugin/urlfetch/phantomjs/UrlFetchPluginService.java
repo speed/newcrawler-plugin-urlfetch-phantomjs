@@ -60,7 +60,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 			try{
 				driver.quit();
 			}catch(Exception e){
-				logger.error(e.getMessage());
+				logger.error(e);
 			}
 			driver=null;
 		}
@@ -210,8 +210,7 @@ public class UrlFetchPluginService implements UrlFetchPlugin{
 		} catch (IOException e) {
 			logger.error(e);
 		} catch (org.openqa.selenium.remote.UnreachableBrowserException e){
-			String msg=e.getMessage();
-			logger.error(msg);
+			logger.error(e);
 			destory();
 			map=read(proxyIP, proxyPort, proxyUsername, proxyPassword, proxyType, phantomjsPath, headers, crawlUrl, method, encoding, 
 					jsFilterType, filterRegexs, jsList, cacheRegexs, timeoutConnection, timeoutJavascript);
